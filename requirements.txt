@@ -1,0 +1,7 @@
+streamlit
+faiss-cpu
+sentence-transformers
+transformers
+PyPDF2
+opencv-python
+pytesseract
