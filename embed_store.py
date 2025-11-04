@@ -9,8 +9,13 @@ def create_embeddings(text_chunks):
     index.add(np.array(embeddings))
     return model, index, embeddings
 
-def retrieve_context(query, model, index, chunks, top_k=3):
+def retrieve_context_with_metadata(query, model, index, chunks, metadata, top_k=3):
     q_embed = model.encode([query])
     distances, indices = index.search(q_embed, top_k)
-    retrieved = [chunks[i] for i in indices[0]]
-    return retrieved
+    results = []
+    for idx in indices[0]:
+        results.append({
+            "text": chunks[idx],
+            "meta": metadata[idx]
+        })
+    return results
