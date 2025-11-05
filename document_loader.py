@@ -11,7 +11,6 @@ def extract_text_chunks_with_metadata(folder_path, chunk_size=500):
                 reader = PyPDF2.PdfReader(pdf_file)
                 for page_no, page in enumerate(reader.pages, start=1):
                     page_text = page.extract_text() or ""
-                    # Break each page into chunks
                     for i in range(0, len(page_text), chunk_size):
                         chunk = page_text[i:i+chunk_size]
                         chunks.append(chunk)
