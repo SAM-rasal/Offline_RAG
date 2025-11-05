@@ -1,6 +1,8 @@
 Offline Retrieval-Augmented Generation (RAG) System
 Overview
-This project implements an end-to-end offline RAG pipeline that enables question answering over PDF documents without internet access. It extracts and chunks PDF text with metadata, creates semantic embeddings, and uses a local language model for grounded answer generation.
+This project implements an end-to-end offline RAG pipeline that enables question answering over PDF documents without internet access. 
+It extracts and chunks PDF text with metadata, creates semantic embeddings, and uses a local language model for grounded answer generation.
+
 
 Features
 Upload your own PDF documents via a Streamlit interface.
@@ -10,6 +12,7 @@ Fast similarity search with FAISS vector store.
 Answer generation using local Flan-T5 model.
 Evaluation on custom datasets with BLEU, ROUGE-L, BERTScore, and Cosine similarity.
 Displays retrieved context along with PDF source and page/chunk info.
+
 
 Technologies
 Python
