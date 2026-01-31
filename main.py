@@ -1,68 +1,42 @@
 import os
-import streamlit as st
-from document_loader import extract_text_chunks_with_metadata
-from embed_store import create_embeddings, retrieve_context_with_metadata
-from rag_engine import generate_answer_with_flan_t5
-import textwrap
+import PyPDF2
+from PIL import Image
+import pytesseract
 
-# Create a temporary folder to save uploaded PDFs
-UPLOAD_DIR = "uploaded_docs"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-# Initialize session state keys
-for key in ["chunks", "metadata", "model", "index", "embeddings"]:
-    if key not in st.session_state:
-        st.session_state[key] = None
-
-st.title("Offline RAG Document Q&A System with Upload")
-
-# File uploader accepts multiple PDFs at once
-uploaded_files = st.file_uploader(
-    "Upload PDF documents", type=["pdf"], accept_multiple_files=True
-)
-
-if uploaded_files:
-    st.write(f"Uploading {len(uploaded_files)} files...")
-    for uploaded_file in uploaded_files:
-        # Save uploaded file to UPLOAD_DIR
-        file_path = os.path.join(UPLOAD_DIR, uploaded_file.name)
-        with open(file_path, "wb") as f_out:
-            f_out.write(uploaded_file.getbuffer())
-    st.success(f"Saved {len(uploaded_files)} files to {UPLOAD_DIR}!")
-    
-    # Process uploaded documents (extract chunks + metadata)
-    chunks, metadata = extract_text_chunks_with_metadata(UPLOAD_DIR)
-    st.session_state["chunks"] = chunks
-    st.session_state["metadata"] = metadata
-    st.success(f"Extracted {len(chunks)} chunks from uploaded documents.")
-
-if st.button("Create Embeddings"):
-    if st.session_state["chunks"]:
-        model, index, embeddings = create_embeddings(st.session_state["chunks"])
-        st.session_state["model"] = model
-        st.session_state["index"] = index
-        st.session_state["embeddings"] = embeddings
-        st.success("Embeddings created and indexed.")
-    else:
-        st.error("No chunks found. Please upload documents first.")
-
-query = st.text_input("Ask your question here:")
-
-if st.button("Generate Answer") and query:
-    if not st.session_state["model"] or not st.session_state["index"] or not st.session_state["chunks"]:
-        st.error("Load documents and create embeddings first!")
-    else:
-        results = retrieve_context_with_metadata(
-            query,
-            st.session_state["model"], st.session_state["index"],
-            st.session_state["chunks"], st.session_state["metadata"]
-        )
-        answer = generate_answer_with_flan_t5(query, " ".join([r["text"] for r in results]))
-        st.subheader("Generated Answer")
-        st.write(textwrap.fill(answer, width=100))
-        st.subheader("Retrieved Contexts")
-        for ctx_result in results:
-            ctx = ctx_result["text"]
-            meta = ctx_result["meta"]
-            st.markdown(f"**File:** {meta['source_file']}  \n**Page:** {meta['page']}  \n**Chunk:** {meta['chunk_num']}")
-            st.text_area("Context", ctx, height=100)
+def extract_text_chunks_with_metadata(folder_path, chunk_size=500, tesseract_cmd=None):
+    if tesseract_cmd:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+    chunks = []
+    metadata = []
+    for file in os.listdir(folder_path):
+        path = os.path.join(folder_path, file)
+        if file.lower().endswith(".pdf"):
+            with open(path, "rb") as pdf_file:
+                reader = PyPDF2.PdfReader(pdf_file)
+                for page_no, page in enumerate(reader.pages, start=1):
+                    page_text = page.extract_text() or ""
+                    for i in range(0, len(page_text), chunk_size):
+                        chunk = page_text[i:i+chunk_size]
+                        chunks.append(chunk)
+                        metadata.append({
+                            "source_file": file,
+                            "page": page_no,
+                            "chunk_num": i//chunk_size + 1,
+                            "source_type": "pdf"
+                        })
+        elif file.lower().endswith((".png", ".jpg", ".jpeg")):
+            try:
+                image = Image.open(path)
+                text = pytesseract.image_to_string(image)
+                for i in range(0, len(text), chunk_size):
+                    chunk = text[i:i+chunk_size]
+                    chunks.append(chunk)
+                    metadata.append({
+                        "source_file": file,
+                        "page": 1,
+                        "chunk_num": i//chunk_size + 1,
+                        "source_type": "image"
+                    })
+            except Exception as e:
+                continue
+    return chunks, metadata
